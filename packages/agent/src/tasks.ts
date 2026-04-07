@@ -209,7 +209,11 @@ export async function handleImplement(
     }
 
     // Push and open PR
-    const pushResult = spawnSync('git', ['push', 'origin', branch], { cwd: workDir, stdio: 'pipe' });
+    const pushResult = spawnSync('git', ['push', 'origin', branch], {
+      cwd: workDir,
+      stdio: 'pipe',
+      env: { ...process.env, GIT_AUTHORIZATION_TOKEN: getGithubToken() },
+    });
     if (pushResult.status !== 0) {
       throw new Error(`git push failed: ${pushResult.stderr?.toString().trim()}`);
     }
