@@ -95,6 +95,8 @@ Sends an abort signal to the running task. Claude Code is interrupted and the wo
 
 RunAFK is not published to the Slack App Directory. Publishing requires a formal Slack review process (security questionnaire, privacy policy, support contact, etc.) that is out of scope for a v1 tool used within a single workspace. It is currently only available in the author's workspace (`ebgz.slack.com`). Request an invite to that workspace to use it.
 
+The relay is already running at **https://runafk-relay-production.up.railway.app**.
+
 ### 2. Configure and run the agent
 
 Copy `packages/agent/.env.example` to `packages/agent/.env` and fill in the values (see table below).
