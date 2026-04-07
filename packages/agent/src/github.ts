@@ -29,7 +29,7 @@ export async function listAssignedIssues(): Promise<string> {
   if (data.length === 0) return 'No open issues assigned to you.';
 
   return data
-    .map((i) => `#${i.number}: ${i.title}`)
+    .map((i) => `<${i.html_url}|#${i.number}: ${i.title}>`)
     .join('\n');
 }
 
