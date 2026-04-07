@@ -97,7 +97,7 @@ See README.md for the full breakdown. Short version: relay (Railway) ↔ agent (
 
 https://www.loom.com/share/3fc4a8ed72a0440b803d6ae15477ae98
 
-Planned coverage:
+Covers:
 1. `/list` — browse assigned issues
 2. `/plan <issue>` — wait for the plan DM, show Approve/Reject buttons
 3. Approve — show the plan posted as a GitHub issue comment

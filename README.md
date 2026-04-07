@@ -149,6 +149,8 @@ These are intentional scoping choices, not oversights.
 
 ## Development
 
+Requires **Node.js 20+** and npm 10+.
+
 ```bash
 # Install dependencies
 npm install
