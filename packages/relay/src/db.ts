@@ -91,14 +91,14 @@ export async function getTaskById(id: number): Promise<{
 
 export async function hasActiveTask(
   slackUserId: string,
-  type: string,
+  type?: string,
   issueNumber?: number,
 ): Promise<boolean> {
   const rows = await sql<{ count: string }[]>`
     SELECT COUNT(*)::text AS count FROM tasks
     WHERE slack_user_id = ${slackUserId}
-      AND type = ${type}
       AND status IN ('pending', 'in_progress')
+      AND (${type ?? null} IS NULL OR type = ${type ?? null})
       AND (${issueNumber ?? null}::integer IS NULL OR issue_number = ${issueNumber ?? null})
   `;
   return parseInt(rows[0].count) > 0;

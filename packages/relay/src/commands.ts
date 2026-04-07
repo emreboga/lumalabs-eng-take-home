@@ -103,6 +103,10 @@ boltApp.command('/cancel', async ({ command, ack, respond }) => {
     await agentOfflineReply(respond);
     return;
   }
+  if (!(await hasActiveTask(command.user_id))) {
+    await respond({ text: 'No active task to cancel.', response_type: 'ephemeral' });
+    return;
+  }
   await cancelActiveTask(command.user_id);
   forwardToAgent(command.user_id, {
     type: 'cancel',
