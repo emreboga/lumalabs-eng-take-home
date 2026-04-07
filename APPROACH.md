@@ -95,7 +95,7 @@ See README.md for the full breakdown. Short version: relay (Railway) ↔ agent (
 
 ## Loom walkthrough
 
-[PLACEHOLDER — insert Loom URL here]
+https://www.loom.com/share/3fc4a8ed72a0440b803d6ae15477ae98
 
 Planned coverage:
 1. `/list` — browse assigned issues
