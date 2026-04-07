@@ -3,8 +3,28 @@ import { boltApp, postToDM } from './slack';
 import { forwardToAgent, isAgentOnline, getPendingPlan, removePendingPlan, registerPendingTask } from './ws-server';
 import { createTask } from './db';
 
+async function disableButtons(
+  body: BlockAction,
+  label: string,
+): Promise<void> {
+  await boltApp.client.chat.update({
+    channel: body.channel!.id,
+    ts: body.message!.ts,
+    text: body.message!.text ?? '',
+    blocks: [
+      body.message!.blocks[0],
+      {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: label }],
+      },
+    ],
+  });
+}
+
 boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, body }) => {
   await ack();
+  await disableButtons(body, '✅ *Approved*');
+
   const userId = body.user.id;
   const planTaskId = action.value ?? '';
 
@@ -41,6 +61,7 @@ boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, 
 
 boltApp.action<BlockAction<ButtonAction>>('reject_plan', async ({ action, ack, body }) => {
   await ack();
+  await disableButtons(body, '❌ *Rejected*');
   removePendingPlan(action.value ?? '');
   await postToDM(body.user.id, 'Plan rejected.');
 });
