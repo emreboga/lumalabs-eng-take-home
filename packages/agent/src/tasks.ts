@@ -218,7 +218,11 @@ export async function handleImplement(
     });
     fs.rmSync(pushAskpass, { force: true });
     if (pushResult.status !== 0) {
-      throw new Error(`git push failed: ${pushResult.stderr?.toString().trim()}`);
+      const stderr = pushResult.stderr?.toString().trim() ?? '';
+      if (stderr.includes('rejected') || stderr.includes('already exists')) {
+        throw new Error(`Branch ${branch} already exists on the remote. Delete it or merge the existing PR before retrying.`);
+      }
+      throw new Error(`git push failed: ${stderr}`);
     }
     const prUrl = await createPullRequest(issueNumber, branch, `feat: implement issue #${issueNumber}${safeTitle ? ` — ${safeTitle}` : ''}`);
     sendCheckpoint('pr_opened', `PR opened: ${prUrl}`);
