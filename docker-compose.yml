@@ -1,0 +1,8 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: packages/agent/Dockerfile
+    env_file:
+      - packages/agent/.env
+    restart: unless-stopped
