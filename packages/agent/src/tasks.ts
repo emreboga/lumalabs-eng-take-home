@@ -11,8 +11,7 @@ import {
   createPullRequest,
   getRepoUrl,
   getGithubToken,
-  getAuthenticatedUser,
-  getAuthenticatedEmail,
+  getAuthenticatedUserInfo,
 } from './github';
 import { runClaude, IMPLEMENT_TIMEOUT_MS } from './claude';
 
@@ -40,11 +39,14 @@ export async function handlePlan(
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runafk-plan-'));
 
   try {
+    const planAskpass = path.join(os.tmpdir(), `runafk-askpass-${Date.now()}.sh`);
+    fs.writeFileSync(planAskpass, '#!/bin/sh\nprintf "%s" "${RUNAFK_GIT_TOKEN}"\n', { mode: 0o700 });
     const planCloneResult = spawnSync('git', ['clone', '--depth', '1', getRepoUrl(), '.'], {
       cwd: workDir,
       stdio: 'pipe',
-      env: { ...process.env, GIT_AUTHORIZATION_TOKEN: getGithubToken() },
+      env: { ...process.env, GIT_ASKPASS: planAskpass, GIT_USERNAME: 'x-token', RUNAFK_GIT_TOKEN: getGithubToken() },
     });
+    fs.rmSync(planAskpass, { force: true });
     if (planCloneResult.status !== 0) {
       throw new Error(`git clone failed: ${planCloneResult.stderr?.toString().trim()}`);
     }
@@ -102,11 +104,14 @@ export async function handleImplement(
 
   try {
     // Clone and branch
+    const askpass = path.join(os.tmpdir(), `runafk-askpass-${Date.now()}.sh`);
+    fs.writeFileSync(askpass, '#!/bin/sh\nprintf "%s" "${RUNAFK_GIT_TOKEN}"\n', { mode: 0o700 });
     const cloneResult = spawnSync('git', ['clone', getRepoUrl(), '.'], {
       cwd: workDir,
       stdio: 'pipe',
-      env: { ...process.env, GIT_AUTHORIZATION_TOKEN: getGithubToken() },
+      env: { ...process.env, GIT_ASKPASS: askpass, GIT_USERNAME: 'x-token', RUNAFK_GIT_TOKEN: getGithubToken() },
     });
+    fs.rmSync(askpass, { force: true });
     if (cloneResult.status !== 0) {
       throw new Error(`git clone failed: ${cloneResult.stderr?.toString().trim()}`);
     }
@@ -116,8 +121,7 @@ export async function handleImplement(
     }
 
     // Configure git identity
-    const ghUser = await getAuthenticatedUser();
-    const ghEmail = await getAuthenticatedEmail();
+    const { login: ghUser, email: ghEmail } = await getAuthenticatedUserInfo();
     spawnSync('git', ['config', 'user.name', ghUser], { cwd: workDir, stdio: 'pipe' });
     spawnSync('git', ['config', 'user.email', ghEmail], { cwd: workDir, stdio: 'pipe' });
 

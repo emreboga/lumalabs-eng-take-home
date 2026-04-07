@@ -11,7 +11,8 @@ if (!RELAY_WS_URL || !AGENT_TOKEN) {
   process.exit(1);
 }
 
-const RECONNECT_DELAY_MS = 5000;
+let reconnectDelay = 1_000;
+const MAX_RECONNECT_MS = 60_000;
 
 // Track abort controllers by taskId so /cancel can abort the active task
 const activeControllers = new Map<string, AbortController>();
@@ -30,6 +31,7 @@ function connect(): void {
   }
 
   ws.on('open', () => {
+    reconnectDelay = 1_000;
     console.log('[agent] connection established, awaiting registration...');
   });
 
@@ -109,8 +111,9 @@ function connect(): void {
   });
 
   ws.on('close', (code, reason) => {
-    console.log(`[agent] disconnected (${code}: ${reason.toString() || 'no reason'}). Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
-    setTimeout(connect, RECONNECT_DELAY_MS);
+    console.log(`[agent] disconnected (${code}: ${reason.toString() || 'no reason'}). Reconnecting in ${reconnectDelay / 1000}s...`);
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_MS);
   });
 
   ws.on('error', (err) => {

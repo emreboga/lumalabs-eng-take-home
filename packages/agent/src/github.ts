@@ -57,15 +57,12 @@ export async function postPlanComment(issueNumber: number, planText: string): Pr
   });
 }
 
-export async function getAuthenticatedUser(): Promise<string> {
+export async function getAuthenticatedUserInfo(): Promise<{ login: string; email: string }> {
   const { data } = await client().users.getAuthenticated();
-  return data.login;
-}
-
-export async function getAuthenticatedEmail(): Promise<string> {
-  const { data } = await client().users.getAuthenticated();
-  // GitHub may not expose email publicly; fall back to noreply address
-  return data.email ?? `${data.login}@users.noreply.github.com`;
+  return {
+    login: data.login,
+    email: data.email ?? `${data.login}@users.noreply.github.com`,
+  };
 }
 
 export async function createPullRequest(

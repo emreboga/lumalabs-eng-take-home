@@ -35,6 +35,7 @@ const pendingPlans = new Map<string, PendingPlan>(); // taskId → plan
 
 export function storePendingPlan(taskId: string, plan: PendingPlan): void {
   pendingPlans.set(taskId, plan);
+  setTimeout(() => pendingPlans.delete(taskId), 60 * 60 * 1000);
 }
 
 export function getPendingPlan(taskId: string): PendingPlan | undefined {
@@ -160,8 +161,8 @@ export function createAgentServer(httpServer: Server): void {
         } else if (textNotifier) {
           await textNotifier(slackUserId, msg.text);
         }
-      } catch {
-        console.error('[ws] failed to parse agent message');
+      } catch (e) {
+        console.error('[ws] error processing agent message:', e);
       }
     });
 
