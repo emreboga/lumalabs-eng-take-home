@@ -98,7 +98,7 @@ export async function hasActiveTask(
     SELECT COUNT(*)::text AS count FROM tasks
     WHERE slack_user_id = ${slackUserId}
       AND status IN ('pending', 'in_progress')
-      AND (${type ?? null} IS NULL OR type = ${type ?? null})
+      AND (${type ?? null}::text IS NULL OR type = ${type ?? null})
       AND (${issueNumber ?? null}::integer IS NULL OR issue_number = ${issueNumber ?? null})
   `;
   return parseInt(rows[0].count) > 0;
