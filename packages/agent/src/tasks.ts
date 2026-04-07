@@ -165,6 +165,12 @@ export async function handleImplement(
       throw new Error(`git commit failed:\n${(commitResult.stdout + commitResult.stderr).trim()}`);
     }
 
+    // Install dependencies before running tests
+    const installResult = spawnSync('npm', ['install'], { cwd: workDir, stdio: 'pipe', encoding: 'utf-8', timeout: 3 * 60 * 1000 });
+    if (installResult.status !== 0) {
+      throw new Error(`npm install failed:\n${(installResult.stdout + installResult.stderr).trim()}`);
+    }
+
     // Run tests
     const testCmd = findTestCommand(workDir);
     if (testCmd) {
