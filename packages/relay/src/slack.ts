@@ -41,8 +41,7 @@ const CHECKPOINT_STYLE: Record<CheckpointStatus, { color: string; emoji: string 
 async function postAttachmentDM(slackUserId: string, text: string, color: string): Promise<void> {
   await boltApp.client.chat.postMessage({
     channel: slackUserId,
-    text,
-    attachments: [{ color, mrkdwn_in: ['text'], text }],
+    attachments: [{ color, mrkdwn_in: ['text'], text, fallback: text }],
   });
 }
 
