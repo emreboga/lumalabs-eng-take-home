@@ -209,11 +209,14 @@ export async function handleImplement(
     }
 
     // Push and open PR
+    const pushAskpass = path.join(os.tmpdir(), `runafk-askpass-${Date.now()}.sh`);
+    fs.writeFileSync(pushAskpass, '#!/bin/sh\nprintf "%s" "${RUNAFK_GIT_TOKEN}"\n', { mode: 0o700 });
     const pushResult = spawnSync('git', ['push', 'origin', branch], {
       cwd: workDir,
       stdio: 'pipe',
-      env: { ...process.env, GIT_AUTHORIZATION_TOKEN: getGithubToken() },
+      env: { ...process.env, GIT_ASKPASS: pushAskpass, GIT_USERNAME: 'x-token', RUNAFK_GIT_TOKEN: getGithubToken() },
     });
+    fs.rmSync(pushAskpass, { force: true });
     if (pushResult.status !== 0) {
       throw new Error(`git push failed: ${pushResult.stderr?.toString().trim()}`);
     }
