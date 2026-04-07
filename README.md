@@ -1,111 +1,125 @@
-# Luma Take-Home
+# RunAFK
 
-Modern engineering is about directing leverage — tools, judgment, taste — toward real outcomes. This take-home is designed around that.
+RunAFK is a Slack bot that acts as your autonomous coding agent. Point it at a GitHub issue, approve its plan, and it writes the code, runs the tests, and opens a pull request — all while you're away from your desk.
 
-Pick a problem. Build something that works. You have ~1 working day.
+## How it works
 
-**You must use AI coding tools** — Claude Code, Cursor, Codex, whatever you prefer. These problems are scoped so that AI is necessary to ship something real in a day. We want to see how you direct the tools: how you plan, how you course-correct, what you accept, and what you push back on.
+RunAFK has three packages: `shared` (types), `relay` (the Slack-facing server hosted on Railway), and `agent` (the Claude Code runner you run locally via Docker).
 
----
-
-## Choose a Problem
-
-These problems range from pure product to deep platform infrastructure. Pick the one where you'll shine — we'd rather see you in your element than stretching into unfamiliar territory.
-
-These are deliberately open-ended — we want to see what paths you take. For product-leaning problems, we'll focus more on how you thought about the user and the problem space. For infra/platform problems, we'll focus more on architecture and system design. But we care about both in every submission. In all cases, we expect you to have a real opinion on what you built and why — and a mental model of the system in your head. This isn't vibe coding. The AI writes the code; you own the decisions.
-
-### 1. Where (and When) Should We Eat?
-
-A group of people is trying to decide where and when to get lunch or dinner.
-
-**Design and build a product that helps groups reach a decision quickly.**
-
-### 2. Work With Coding Agents While Away From Your Desk
-
-Engineers increasingly rely on coding agents to make progress. But real life happens: meetings, commuting, fragmented attention, small screens.
-
-**Design and build a product that lets an individual engineer continue making meaningful progress on software work while away from their primary workstation.**
-
-### 3. Managing Prompt & Model Behavior in Production
-
-Modern AI products ship by changing behavior — prompts, model routing, tool usage, retrieval strategies, temperature, guardrails, post-processing. Small changes can create big differences in user outcomes.
-
-**Design and build a product that helps a team introduce, evaluate, and manage changes to AI behavior.**
-
-### 4. Build a High-Scale TTS API
-
-Your company wants to offer text-to-speech as an API for voice agent use cases (think real-time streaming from a LLM). Developers will integrate it into real applications and expect it to work reliably. Integrate a real open-source TTS model of your choice.
-
-If successful, usage will be very large — many concurrent clients, sustained throughput, bursty traffic, long-running streams, customers depending on you.
-
-**Design and build a system that could credibly operate in this world.**
-
----
-
-## What to Deliver
-
-### 1. Working software
-
-Build your solution directly in this repo. It should run. Include setup instructions that work in a fresh Linux container — we will run your code in one during review. If you use Docker, provide a `docker-compose.yml` for one-command setup.
-
-**If your project is deployable, deploy it.** We want to experience what you built, not just read about it. A live URL — whether it's a web app, an API endpoint, or a hosted service — goes a long way. Vercel, Railway, Fly, a VPS, whatever works. Include the URL in your APPROACH.md.
-
-A `.env.example` is included with stub keys for providers we have accounts with (Anthropic, OpenAI, ElevenLabs, Google Cloud, AWS). Copy it to `.env`, use whichever keys your solution needs, and document any others.
-
-### 2. APPROACH.md
-
-- What you built and why
-- Key decisions and tradeoffs
-- What you intentionally left out
-- What breaks first under pressure
-- What you'd build next
-
-### 3. Loom walkthrough
-
-Record a short Loom video (~5 minutes) showing what you built. Demo the key flows — whether that's a UI walkthrough, a CLI session, or hitting your API — explain your decisions, and highlight anything you're particularly proud of. This is your chance to show us the experience through your eyes.
-
-### 4. AI session history
-
-Your AI session logs (Claude Code, Codex, Cursor) are packaged automatically when you run `./submit.sh`. If you used other AI tools (ChatGPT, etc.), export those conversations and include them in your repo before submitting.
-
-This is a required deliverable. We review your AI interaction to understand how you work — how you plan, iterate, and direct the tools.
-
----
-
-## Getting Started
-
-```bash
-# 1. Extract the challenge archive you downloaded
-tar xzf challenge.tar.gz && cd *eng-take-home*
-
-# 2. Create your own private repo and push to it
-git init && git add -A && git commit -m "initial"
-gh repo create my-take-home --private --source=. --push
-
-# 3. Copy the env file and fill in any keys you need
-cp .env.example .env
+```
+Slack → Relay → Agent → Claude Code → GitHub → PR → Relay → Slack
 ```
 
-Now build your solution. Commit and push as you go.
+Your agent connects outbound to the relay over WSS, authenticated with a bearer token. The relay handles all Slack communication (slash commands, Block Kit approval buttons, DM notifications). When you invoke a command, the relay forwards it to your agent, which spawns Claude Code, interacts with GitHub, and streams status checkpoints back to your DM.
 
----
+- **Relay**: runs on Railway with a PostgreSQL database for task history and token registry
+- **Agent**: runs locally in a Docker container; uses your GitHub PAT for clone/push and Octokit for API calls
 
-## Submitting
+## Usage
 
-When you're ready, run the submit script from your repo root:
+### 1. Browse your issues
 
-```bash
-./submit.sh
+```
+/list
 ```
 
-This handles everything: packages your AI session history, commits and pushes your latest changes, grants reviewer access, and registers your submission. You'll see a confirmation when it's done.
+Shows all open GitHub issues assigned to you in your configured repo.
 
----
+### 2. Generate a plan
 
-## What We Value
+```
+/plan <issue-number>
+```
 
-We want real, working software — not a prototype, not a toy. You'll likely focus on a slice of the problem, but that slice should actually work and be something you'd put in front of a user or a developer. Show polish where it matters to you — in the API design, the architecture, the user experience, the key interactions. Ship a finished product, not a proof of concept.
+Claude reads your codebase and produces a detailed, step-by-step implementation plan. It arrives in your DM with **Approve** and **Reject** buttons.
 
-To be clear: we expect the result to be better than what an AI would produce on its own with minimal guidance. Your judgment, taste, and direction are what make the difference.
+### 3. Approve the plan
 
-We're looking for intentional decisions — what you chose to build, what you cut, and why.
+Click **Approve**. RunAFK posts the plan as a comment on the GitHub issue so it's visible to your team.
+
+### 4. Implement
+
+```
+/implement <issue-number>
+```
+
+Claude writes the code, runs your test suite, and attempts to self-correct if tests fail. Once tests pass, it commits, pushes to a new branch (`runafk/issue-N`), and opens a pull request.
+
+### 5. Track progress
+
+Color-coded status messages appear in your DM at each stage: planning → coding → testing → PR opened.
+
+### 6. Cancel anytime
+
+```
+/cancel
+```
+
+Aborts the running task immediately.
+
+## Slash commands
+
+| Command | Description |
+|---|---|
+| `/register <token>` | Connect your local agent to your Slack account |
+| `/plan <issue>` | Generate an implementation plan for a GitHub issue |
+| `/implement <issue>` | Implement an approved plan and open a PR |
+| `/cancel` | Cancel the current running task |
+| `/list` | List your open GitHub issues |
+| `/help` | Show all commands |
+
+## Setup
+
+### 1. Install the Slack app
+
+RunAFK is not published to the Slack App Directory — it is currently only available in the author's workspace (`ebgz.slack.com`). Request an invite to that workspace to use it.
+
+### 2. Configure and run the agent
+
+Copy `packages/agent/.env.example` to `packages/agent/.env` and fill in the values (see table below).
+
+Register your token in Slack **before** starting the agent — the relay will reject connections from unregistered tokens:
+
+```
+/register <your-AGENT_TOKEN>
+```
+
+Then start the agent:
+
+```bash
+npm run agent
+```
+
+This pulls the latest image from Docker Hub and starts the container.
+
+## Agent configuration
+
+Set these in `packages/agent/.env`:
+
+| Variable | Description |
+|---|---|
+| `RELAY_WS_URL` | WebSocket URL of the relay (e.g. `wss://your-relay.railway.app/agent`) |
+| `AGENT_TOKEN` | Secret token you choose; register it in Slack with `/register` |
+| `GITHUB_TOKEN` | GitHub PAT with `repo` scope (for clone, push, PR creation, and issue reads) |
+| `AGENT_REPO` | Target repository in `owner/repo` format |
+| `ANTHROPIC_API_KEY` | Anthropic API key (used by Claude Code CLI) |
+
+## V1 tradeoffs
+
+- **Single agent per user**: each developer runs one Docker container; no parallelism across issues
+- **In-memory pending state**: unapproved plans live in relay memory — a relay restart before approval drops them (DB fallback recovers in-progress tasks but not yet-approved plans)
+- **Plan is approve/reject only**: no inline editing in Slack before posting to GitHub
+- **No streaming**: Claude Code output is buffered; you see nothing until a checkpoint fires (started → coding → testing → PR opened)
+- **One repo per agent**: `AGENT_REPO` is a single env var; switching repos requires restarting with a different value
+- **Test detection is heuristic**: looks for `package.json` scripts, `pytest.ini`, and `Makefile`; may miss custom setups
+- **No branch conflict handling**: if `runafk/issue-N` already exists, push fails
+
+## V2 improvements
+
+- **Streaming progress**: pipe Claude Code output to Slack in real time via chunked checkpoints
+- **Plan editing**: inline text editing in Slack before approving (modal or threaded reply)
+- **Multi-repo support**: agent accepts repo override per task
+- **Encrypted plan text at rest**: encrypt the `plan_text` DB column (currently plaintext)
+- **PR review loop**: `/review <pr>` command — agent reads review comments and re-implements
+- **Web dashboard**: task history, logs, and PR links in a browser UI
+- **Parallel tasks**: multiple concurrent Claude Code runs with resource limits
