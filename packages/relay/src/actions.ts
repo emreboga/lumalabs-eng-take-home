@@ -7,15 +7,24 @@ async function disableButtons(
   body: BlockAction,
   label: string,
 ): Promise<void> {
+  // blocks live inside the attachment (colored sidebar); fall back to top-level for safety
+  const attachment = (body.message as any)?.attachments?.[0];
+  const sectionBlock = attachment?.blocks?.[0] ?? body.message!.blocks?.[0];
+
   await boltApp.client.chat.update({
     channel: body.channel!.id,
     ts: body.message!.ts,
     text: body.message!.text ?? '',
-    blocks: [
-      body.message!.blocks[0],
+    attachments: [
       {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: label }],
+        color: attachment?.color ?? '#4A9EE0',
+        blocks: [
+          sectionBlock,
+          {
+            type: 'context',
+            elements: [{ type: 'mrkdwn', text: label }],
+          },
+        ],
       },
     ],
   });
@@ -30,12 +39,12 @@ boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, 
 
   const plan = getPendingPlan(planTaskId);
   if (!plan) {
-    await postToDM(userId, 'Plan not found — it may have expired.');
+    await postToDM(userId, 'Plan not found — it may have expired.', 'error');
     return;
   }
 
   if (!isAgentOnline(userId)) {
-    await postToDM(userId, 'Agent is offline.');
+    await postToDM(userId, 'Agent is offline.', 'error');
     return;
   }
 
@@ -50,18 +59,18 @@ boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, 
   });
 
   if (!sent) {
-    await postToDM(userId, 'Agent is offline.');
+    await postToDM(userId, 'Agent is offline.', 'error');
     return;
   }
 
   removePendingPlan(planTaskId);
   registerPendingTask(taskId, { slackUserId: userId, type: 'post_plan', issueNumber: plan.issueNumber, dbTaskId });
-  await postToDM(userId, `Plan approved. Posting to GitHub issue #${plan.issueNumber}...`);
+  await postToDM(userId, `Plan approved. Posting to GitHub issue #${plan.issueNumber}...`, 'info');
 });
 
 boltApp.action<BlockAction<ButtonAction>>('reject_plan', async ({ action, ack, body }) => {
   await ack();
   await disableButtons(body, '❌ *Rejected*');
   removePendingPlan(action.value ?? '');
-  await postToDM(body.user.id, 'Plan rejected.');
+  await postToDM(body.user.id, 'Plan rejected.', 'error');
 });

@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
 import crypto from 'crypto';
-import type { AgentToRelayMessage, RelayToAgentMessage } from '@runafk/shared';
+import type { AgentToRelayMessage, RelayToAgentMessage, CheckpointStatus } from '@runafk/shared';
 import { registerAgent, resolveAgent, updateTask, getTaskById } from './db';
 
 // ─── Agent connections ────────────────────────────────────────────────────────
@@ -47,14 +47,20 @@ export function removePendingPlan(taskId: string): void {
 
 // ─── Slack notifier callbacks ─────────────────────────────────────────────────
 
-type TextNotifier = (slackUserId: string, text: string) => Promise<void>;
+type TextNotifier = (slackUserId: string, text: string, style?: 'info' | 'success' | 'error') => Promise<void>;
+type CheckpointNotifier = (slackUserId: string, status: CheckpointStatus, text: string) => Promise<void>;
 type PlanNotifier = (slackUserId: string, taskId: string, issueNumber: number, planText: string) => Promise<void>;
 
 let textNotifier: TextNotifier | null = null;
+let checkpointNotifier: CheckpointNotifier | null = null;
 let planNotifier: PlanNotifier | null = null;
 
 export function setTextNotifier(fn: TextNotifier): void {
   textNotifier = fn;
+}
+
+export function setCheckpointNotifier(fn: CheckpointNotifier): void {
+  checkpointNotifier = fn;
 }
 
 export function setPlanNotifier(fn: PlanNotifier): void {
@@ -120,7 +126,7 @@ export function createAgentServer(httpServer: Server): void {
 
         if (msg.type === 'checkpoint') {
           if (task) await updateTask(task.dbTaskId, { status: msg.status });
-          if (textNotifier) await textNotifier(slackUserId, msg.text);
+          if (checkpointNotifier) await checkpointNotifier(slackUserId, msg.status, msg.text);
           return;
         }
 
@@ -136,13 +142,17 @@ export function createAgentServer(httpServer: Server): void {
         const finalStatus = msg.error ? 'failed' : 'completed';
         await updateTask(task.dbTaskId, { status: finalStatus });
 
-        if (!msg.error && task.type === 'plan' && planNotifier) {
+        if (msg.error) {
+          if (textNotifier) await textNotifier(slackUserId, msg.text, 'error');
+        } else if (task.type === 'plan' && planNotifier) {
           storePendingPlan(msg.taskId, {
             slackUserId,
             issueNumber: task.issueNumber!,
             planText: msg.text,
           });
           await planNotifier(slackUserId, msg.taskId, task.issueNumber!, msg.text);
+        } else if (task.type === 'implement' && textNotifier) {
+          await textNotifier(slackUserId, msg.text, 'success');
         } else if (textNotifier) {
           await textNotifier(slackUserId, msg.text);
         }

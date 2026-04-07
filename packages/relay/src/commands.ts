@@ -30,7 +30,7 @@ boltApp.command('/list', async ({ command, ack, respond }) => {
   }
   await updateTask(dbTaskId, { status: 'in_progress' });
   registerPendingTask(taskId, { slackUserId: command.user_id, type: 'list', dbTaskId });
-  await postToDM(command.user_id, 'Working on it...');
+  await postToDM(command.user_id, 'Working on it...', 'info');
 });
 
 boltApp.command('/plan', async ({ command, ack, respond }) => {

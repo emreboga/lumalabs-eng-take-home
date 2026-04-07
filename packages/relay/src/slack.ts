@@ -1,5 +1,6 @@
 import { App, ExpressReceiver, LogLevel } from '@slack/bolt';
 import type { Application } from 'express';
+import type { CheckpointStatus } from '@runafk/shared';
 import { registerToken } from './ws-server';
 
 const receiver = new ExpressReceiver({
@@ -20,8 +21,50 @@ receiver.router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'runafk-relay' });
 });
 
-export async function postToDM(slackUserId: string, text: string): Promise<void> {
-  await boltApp.client.chat.postMessage({ channel: slackUserId, text });
+// ─── Styled message helpers ───────────────────────────────────────────────────
+
+const STYLE_COLOR: Record<'info' | 'success' | 'error', string> = {
+  info:    '#4A9EE0',
+  success: '#36A64F',
+  error:   '#D40E0D',
+};
+
+const CHECKPOINT_STYLE: Record<CheckpointStatus, { color: string; emoji: string }> = {
+  started:        { color: '#4A9EE0', emoji: '⏳' },
+  code_completed: { color: '#4A9EE0', emoji: '💻' },
+  testing:        { color: '#F0A500', emoji: '🧪' },
+  tests_passed:   { color: '#36A64F', emoji: '✅' },
+  pr_opened:      { color: '#36A64F', emoji: '🚀' },
+  error:          { color: '#D40E0D', emoji: '❌' },
+};
+
+async function postAttachmentDM(slackUserId: string, text: string, color: string): Promise<void> {
+  await boltApp.client.chat.postMessage({
+    channel: slackUserId,
+    text,
+    attachments: [{ color, mrkdwn_in: ['text'], text }],
+  });
+}
+
+export async function postToDM(
+  slackUserId: string,
+  text: string,
+  style?: 'info' | 'success' | 'error',
+): Promise<void> {
+  if (style) {
+    await postAttachmentDM(slackUserId, text, STYLE_COLOR[style]);
+  } else {
+    await boltApp.client.chat.postMessage({ channel: slackUserId, text });
+  }
+}
+
+export async function postCheckpointDM(
+  slackUserId: string,
+  status: CheckpointStatus,
+  text: string,
+): Promise<void> {
+  const { color, emoji } = CHECKPOINT_STYLE[status] ?? { color: '#4A9EE0', emoji: '•' };
+  await postAttachmentDM(slackUserId, `${emoji}  ${text}`, color);
 }
 
 export async function postPlanWithButtons(
@@ -34,30 +77,35 @@ export async function postPlanWithButtons(
   await boltApp.client.chat.postMessage({
     channel: slackUserId,
     text: `Plan for issue #${issueNumber}`,
-    blocks: [
+    attachments: [
       {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*Plan for issue #${issueNumber}:*\n\n${truncated}`,
-        },
-      },
-      {
-        type: 'actions',
-        elements: [
+        color: '#4A9EE0',
+        blocks: [
           {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Approve' },
-            style: 'primary',
-            action_id: 'approve_plan',
-            value: taskId,
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Plan for issue #${issueNumber}:*\n\n${truncated}`,
+            },
           },
           {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Reject' },
-            style: 'danger',
-            action_id: 'reject_plan',
-            value: taskId,
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: 'Approve' },
+                style: 'primary',
+                action_id: 'approve_plan',
+                value: taskId,
+              },
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: 'Reject' },
+                style: 'danger',
+                action_id: 'reject_plan',
+                value: taskId,
+              },
+            ],
           },
         ],
       },
