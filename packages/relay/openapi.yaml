@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: RunAFK Relay API
+  version: 1.0.0
+  description: |
+    The RunAFK relay is the central coordination hub between clients (Slack, future UIs),
+    the PostgreSQL task store, and connected agent processes.
+
+    **Primary integration surface:** Slack — slash commands trigger tasks, interactive
+    button actions handle plan approval, and results are delivered via Slack DMs.
+
+    **Agent integration surface:** WebSocket at `ws://<host>/agent` — see the
+    [Agent WebSocket Protocol](#section/Agent-WebSocket-Protocol) section.
+
+servers:
+  - url: https://<your-relay-host>
+    description: Production relay
+
+tags:
+  - name: System
+    description: Health and infrastructure endpoints
+  - name: Slack
+    description: |
+      Endpoints called by Slack. All slash commands, block actions, and event
+      callbacks arrive at a single endpoint handled by the Slack Bolt framework.
+
+      Configure your Slack app's **Request URL** (slash commands) and
+      **Interactivity & Shortcuts Request URL** to point to:
+      `POST https://<your-relay-host>/slack/events`
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Returns 200 when the relay process is running. Used by load balancers and uptime monitors.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Relay is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                service: runafk-relay
+
+  /slack/events:
+    post:
+      tags: [Slack]
+      summary: Slack Events, Commands & Actions endpoint
+      description: |
+        Single endpoint that receives all inbound Slack payloads:
+        - **Slash commands** (`/register`, `/list`, `/plan`, `/implement`, `/cancel`)
+        - **Block actions** (plan approval buttons: `approve_plan`, `reject_plan`)
+
+        Slack signs every request with `X-Slack-Signature` and `X-Slack-Request-Timestamp`.
+        The relay validates the signature using `SLACK_SIGNING_SECRET` before processing.
+
+        Clients do **not** call this endpoint directly — Slack calls it on behalf of users.
+      operationId: slackEvents
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SlashCommandPayload'
+                - $ref: '#/components/schemas/BlockActionPayload'
+      responses:
+        '200':
+          description: |
+            Acknowledged. The relay always responds within Slack's 3-second window.
+            Actual task results are delivered asynchronously via Slack DMs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlackAckResponse'
+              examples:
+                ephemeral:
+                  summary: Ephemeral ack (visible only to user)
+                  value:
+                    response_type: ephemeral
+                    text: Working on it...
+                error:
+                  summary: Validation error
+                  value:
+                    response_type: ephemeral
+                    text: 'Usage: `/plan <issue-number>`'
+
+components:
+  schemas:
+
+    HealthResponse:
+      type: object
+      required: [status, service]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        service:
+          type: string
+          enum: [runafk-relay]
+
+    SlashCommandPayload:
+      type: object
+      description: Standard Slack slash command POST body (application/x-www-form-urlencoded)
+      required: [command, user_id, text]
+      properties:
+        command:
+          type: string
+          description: The slash command name
+          enum: [/register, /list, /plan, /implement, /cancel]
+          example: /plan
+        text:
+          type: string
+          description: Arguments following the command (may be empty)
+          example: '42'
+        user_id:
+          type: string
+          description: Slack user ID of the person who invoked the command
+          example: U0123456789
+        user_name:
+          type: string
+          example: alice
+        team_id:
+          type: string
+          example: T0123456789
+        channel_id:
+          type: string
+          example: D0123456789
+        response_url:
+          type: string
+          format: uri
+          description: URL for delayed responses (not currently used by the relay)
+
+    BlockActionPayload:
+      type: object
+      description: Slack interactive component payload (JSON-encoded in `payload` form field)
+      required: [type, actions, user, message]
+      properties:
+        type:
+          type: string
+          enum: [block_actions]
+        user:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              description: Slack user ID
+              example: U0123456789
+        actions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [action_id, value]
+            properties:
+              action_id:
+                type: string
+                enum: [approve_plan, reject_plan]
+              value:
+                type: string
+                description: The taskId of the pending plan
+                example: '17'
+        message:
+          type: object
+          description: The original message containing the buttons (used to disable them after click)
+
+    SlackAckResponse:
+      type: object
+      properties:
+        response_type:
+          type: string
+          enum: [ephemeral, in_channel]
+          description: ephemeral = visible only to user; in_channel = visible to all
+        text:
+          type: string
+          description: Acknowledgement message shown immediately to the user
+
+  securitySchemes:
+    SlackSignature:
+      type: apiKey
+      in: header
+      name: X-Slack-Signature
+      description: |
+        HMAC-SHA256 signature computed by Slack over the request body.
+        The relay validates this using `SLACK_SIGNING_SECRET`.
+        See https://api.slack.com/authentication/verifying-requests-from-slack
+
+x-websocket:
+  description: |
+    The relay also exposes a WebSocket endpoint at `ws://<host>/agent` for agent processes.
+    See the Agent WebSocket Protocol section in `docs/api.md` for the full protocol specification.
+  path: /agent
+  authentication: Bearer token in Authorization header
