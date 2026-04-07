@@ -62,7 +62,6 @@ boltApp.command('/plan', async ({ command, ack, respond }) => {
   }
   await updateTask(dbTaskId, { status: 'in_progress' });
   registerPendingTask(taskId, { slackUserId: command.user_id, type: 'plan', issueNumber, dbTaskId });
-  await postToDM(command.user_id, `Working on it...`);
 });
 
 boltApp.command('/implement', async ({ command, ack, respond }) => {
@@ -94,7 +93,6 @@ boltApp.command('/implement', async ({ command, ack, respond }) => {
   }
   await updateTask(dbTaskId, { status: 'in_progress' });
   registerPendingTask(taskId, { slackUserId: command.user_id, type: 'implement', issueNumber, dbTaskId });
-  await postToDM(command.user_id, `Working on it...`);
 });
 
 boltApp.command('/cancel', async ({ command, ack, respond }) => {

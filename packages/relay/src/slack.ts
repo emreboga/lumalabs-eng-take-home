@@ -38,6 +38,14 @@ const CHECKPOINT_STYLE: Record<CheckpointStatus, { color: string; emoji: string 
   error:          { color: '#D40E0D', emoji: '❌' },
 };
 
+function toSlackMrkdwn(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/gs, '*$1*')               // **bold** → *bold*
+    .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')             // # Heading → *Heading*
+    .replace(/^-{3,}$/gm, '')                          // --- horizontal rules → removed
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<$2|$1>');  // [text](url) → <url|text>
+}
+
 async function postAttachmentDM(slackUserId: string, text: string, color: string): Promise<void> {
   await boltApp.client.chat.postMessage({
     channel: slackUserId,
@@ -72,7 +80,8 @@ export async function postPlanWithButtons(
   issueNumber: number,
   planText: string,
 ): Promise<void> {
-  const truncated = planText.length > 2800 ? planText.slice(0, 2800) + '\n...(truncated)' : planText;
+  const converted = toSlackMrkdwn(planText);
+  const truncated = converted.length > 2800 ? converted.slice(0, 2800) + '\n...(truncated)' : converted;
   await boltApp.client.chat.postMessage({
     channel: slackUserId,
     text: `Plan for issue #${issueNumber}`,
@@ -84,7 +93,7 @@ export async function postPlanWithButtons(
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*Plan for issue #${issueNumber}:*\n\n${truncated}`,
+              text: truncated,
             },
           },
           {

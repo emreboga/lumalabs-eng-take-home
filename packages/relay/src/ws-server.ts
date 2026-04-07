@@ -153,6 +153,8 @@ export function createAgentServer(httpServer: Server): void {
           await planNotifier(slackUserId, msg.taskId, task.issueNumber!, msg.text);
         } else if (task.type === 'implement' && textNotifier) {
           await textNotifier(slackUserId, msg.text, 'success');
+        } else if (task.type === 'post_plan' && textNotifier) {
+          await textNotifier(slackUserId, msg.text, 'info');
         } else if (textNotifier) {
           await textNotifier(slackUserId, msg.text);
         }
