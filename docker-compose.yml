@@ -1,6 +1,7 @@
 services:
   agent:
     container_name: runafk-agent
+    platform: linux/amd64
     image: emreboga/runafk-agent:latest
     build:
       context: .
