@@ -7,8 +7,12 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/shared && npm run build -w packages/relay && npm run build -w packages/agent",
+    "test": "vitest run",
     "dev:relay": "npm run dev --workspace=packages/relay",
     "dev:agent": "npm run dev --workspace=packages/agent",
     "agent": "docker compose pull; docker compose up -d --force-recreate"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
   }
 }

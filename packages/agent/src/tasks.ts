@@ -230,7 +230,7 @@ export async function handleImplement(
 
 // ─── Test command discovery ───────────────────────────────────────────────────
 
-function findTestCommand(repoPath: string): string | null {
+export function findTestCommand(repoPath: string): string | null {
   const pkgPath = path.join(repoPath, 'package.json');
   if (fs.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));

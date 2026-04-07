@@ -38,7 +38,7 @@ const CHECKPOINT_STYLE: Record<CheckpointStatus, { color: string; emoji: string 
   error:          { color: '#D40E0D', emoji: '❌' },
 };
 
-function toSlackMrkdwn(text: string): string {
+export function toSlackMrkdwn(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/gs, '*$1*')               // **bold** → *bold*
     .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')             // # Heading → *Heading*
