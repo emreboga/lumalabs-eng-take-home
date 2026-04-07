@@ -62,6 +62,7 @@ boltApp.command('/plan', async ({ command, ack, respond }) => {
   }
   await updateTask(dbTaskId, { status: 'in_progress' });
   registerPendingTask(taskId, { slackUserId: command.user_id, type: 'plan', issueNumber, dbTaskId });
+  await respond({ text: '⏳ Received — your agent is on it.', response_type: 'ephemeral' });
 });
 
 boltApp.command('/implement', async ({ command, ack, respond }) => {
@@ -93,6 +94,7 @@ boltApp.command('/implement', async ({ command, ack, respond }) => {
   }
   await updateTask(dbTaskId, { status: 'in_progress' });
   registerPendingTask(taskId, { slackUserId: command.user_id, type: 'implement', issueNumber, dbTaskId });
+  await respond({ text: '⏳ Received — your agent is on it.', response_type: 'ephemeral' });
 });
 
 boltApp.command('/cancel', async ({ command, ack, respond }) => {
@@ -112,4 +114,19 @@ boltApp.command('/cancel', async ({ command, ack, respond }) => {
     slackUserId: command.user_id,
   });
   await respond({ text: 'Cancelling current task...', response_type: 'ephemeral' });
+});
+
+boltApp.command('/help', async ({ ack, respond }) => {
+  await ack();
+  await respond({
+    response_type: 'ephemeral',
+    text: [
+      '*RunAFK commands*',
+      '`/list` — List your open GitHub issues',
+      '`/plan <issue>` — Generate an implementation plan',
+      '`/implement <issue>` — Implement an approved plan and open a PR',
+      '`/cancel` — Cancel the current running task',
+      '`/register <token>` — Connect your local agent',
+    ].join('\n'),
+  });
 });

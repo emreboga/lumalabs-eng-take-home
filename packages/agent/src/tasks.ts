@@ -166,7 +166,7 @@ export async function handleImplement(
       const result = spawnSync(testCmd, { cwd: workDir, shell: true, encoding: 'utf-8', timeout: 5 * 60 * 1000 });
       if (result.status !== 0) {
         const output = (result.stdout + result.stderr).slice(-2000);
-        sendResult(`Tests failed:\n\`\`\`\n${output}\n\`\`\``);
+        sendResult(`Tests failed:\n${output}`);
         return;
       }
       sendCheckpoint('tests_passed', 'Tests passed.');

@@ -65,7 +65,6 @@ boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, 
 
   removePendingPlan(planTaskId);
   registerPendingTask(taskId, { slackUserId: userId, type: 'post_plan', issueNumber: plan.issueNumber, dbTaskId });
-  await postToDM(userId, `Plan approved. Posting to GitHub issue #${plan.issueNumber}...`, 'info');
 });
 
 boltApp.action<BlockAction<ButtonAction>>('reject_plan', async ({ action, ack, body }) => {
