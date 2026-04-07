@@ -7,6 +7,7 @@ export async function runClaude(
   prompt: string,
   cwd: string,
   timeoutMs = PLAN_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn('claude', ['--print', '--allowedTools', 'Edit,Write,Read,Bash,Glob,Grep'], {
@@ -27,8 +28,16 @@ export async function runClaude(
       reject(new Error(`Claude Code timed out after ${timeoutMs / 1000}s`));
     }, timeoutMs);
 
+    const onAbort = () => {
+      clearTimeout(timer);
+      proc.kill();
+      reject(new Error('cancelled'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     proc.on('close', (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       console.log(`[claude] exited with code ${code}`);
       if (stdout) console.log(`[claude] stdout:\n${stdout.slice(-2000)}`);
       if (stderr) console.log(`[claude] stderr:\n${stderr.slice(-1000)}`);
@@ -41,6 +50,7 @@ export async function runClaude(
 
     proc.on('error', (err) => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       reject(new Error(`Failed to start Claude Code: ${err.message}`));
     });
   });

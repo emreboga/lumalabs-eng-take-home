@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
 import crypto from 'crypto';
 import type { AgentToRelayMessage, RelayToAgentMessage } from '@runafk/shared';
-import { registerAgent, resolveAgent, updateTask } from './db';
+import { registerAgent, resolveAgent, updateTask, getTaskById } from './db';
 
 // ─── Agent connections ────────────────────────────────────────────────────────
 
@@ -103,7 +103,20 @@ export function createAgentServer(httpServer: Server): void {
     ws.on('message', async (raw) => {
       try {
         const msg: AgentToRelayMessage = JSON.parse(raw.toString());
-        const task = pendingTasks.get(msg.taskId);
+        let task = pendingTasks.get(msg.taskId);
+
+        // Fix 1: DB fallback when task not in memory (e.g. after relay restart)
+        if (!task) {
+          const dbTask = await getTaskById(Number(msg.taskId));
+          if (dbTask) {
+            task = {
+              slackUserId: dbTask.slack_user_id,
+              type: dbTask.type as PendingTask['type'],
+              issueNumber: dbTask.issue_number ?? undefined,
+              dbTaskId: dbTask.id,
+            };
+          }
+        }
 
         if (msg.type === 'checkpoint') {
           if (task) await updateTask(task.dbTaskId, { status: msg.status });
@@ -118,9 +131,12 @@ export function createAgentServer(httpServer: Server): void {
         }
 
         pendingTasks.delete(msg.taskId);
-        await updateTask(task.dbTaskId, { status: 'completed' });
 
-        if (task.type === 'plan' && planNotifier) {
+        // Fix 2: mark failed when agent sends an error result
+        const finalStatus = msg.error ? 'failed' : 'completed';
+        await updateTask(task.dbTaskId, { status: finalStatus });
+
+        if (!msg.error && task.type === 'plan' && planNotifier) {
           storePendingPlan(msg.taskId, {
             slackUserId,
             issueNumber: task.issueNumber!,

@@ -28,7 +28,13 @@ export interface ImplementTask {
   issueNumber: number;
 }
 
-export type RelayToAgentMessage = ListTask | PlanTask | PostPlanTask | ImplementTask;
+export interface CancelTask {
+  type: 'cancel';
+  taskId: string;
+  slackUserId: string;
+}
+
+export type RelayToAgentMessage = ListTask | PlanTask | PostPlanTask | ImplementTask | CancelTask;
 
 // ─── Agent → Relay ───────────────────────────────────────────────────────────
 
@@ -51,6 +57,7 @@ export interface TaskResultMessage {
   type: 'result';
   taskId: string;
   text: string; // final message shown in Slack (plan text, issue list, PR URL, etc.)
+  error?: boolean; // true when the result is an error — relay marks task 'failed'
 }
 
 export type AgentToRelayMessage = CheckpointMessage | TaskResultMessage;

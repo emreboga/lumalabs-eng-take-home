@@ -13,6 +13,9 @@ if (!RELAY_WS_URL || !AGENT_TOKEN) {
 
 const RECONNECT_DELAY_MS = 5000;
 
+// Track abort controllers by taskId so /cancel can abort the active task
+const activeControllers = new Map<string, AbortController>();
+
 function connect(): void {
   console.log(`[agent] connecting to ${RELAY_WS_URL}...`);
 
@@ -60,25 +63,47 @@ function connect(): void {
     const sendError = (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
+      activeControllers.delete(taskId);
+      if (message === 'cancelled') {
+        console.log(`[agent] task ${taskId} cancelled`);
+        send({ type: 'result', taskId, text: 'Task cancelled.' });
+        return;
+      }
       console.error(`[agent] error on task ${taskId} (${msg.type}):\n${stack ?? message}`);
-      send({ type: 'result', taskId, text: `Error: ${message}` });
+      send({ type: 'result', taskId, text: `Error: ${message}`, error: true });
     };
+
+    if (msg.type === 'cancel') {
+      // Abort whatever task is currently running for this user
+      for (const [tid, ctrl] of activeControllers) {
+        ctrl.abort();
+        activeControllers.delete(tid);
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    activeControllers.set(taskId, controller);
+    const { signal } = controller;
+
+    const wrapTask = (p: Promise<void>) =>
+      p.then(() => activeControllers.delete(taskId)).catch(sendError);
 
     switch (msg.type) {
       case 'list':
-        handleList(sendResult).catch(sendError);
+        wrapTask(handleList(sendResult));
         break;
 
       case 'plan':
-        handlePlan(msg.issueNumber, sendCheckpoint, sendResult).catch(sendError);
+        wrapTask(handlePlan(msg.issueNumber, sendCheckpoint, sendResult, signal));
         break;
 
       case 'post_plan':
-        handlePostPlan(msg.issueNumber, msg.planText, sendResult).catch(sendError);
+        wrapTask(handlePostPlan(msg.issueNumber, msg.planText, sendResult));
         break;
 
       case 'implement':
-        handleImplement(msg.issueNumber, sendCheckpoint, sendResult).catch(sendError);
+        wrapTask(handleImplement(msg.issueNumber, sendCheckpoint, sendResult, signal));
         break;
     }
   });

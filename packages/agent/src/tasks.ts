@@ -31,6 +31,7 @@ export async function handlePlan(
   issueNumber: number,
   sendCheckpoint: SendCheckpoint,
   sendResult: SendResult,
+  signal?: AbortSignal,
 ): Promise<void> {
   sendCheckpoint('started', `Planning issue #${issueNumber}...`);
 
@@ -50,7 +51,7 @@ export async function handlePlan(
       `Output ONLY the implementation plan — no code, just clear steps. Be specific about which files to change and why.`,
     ].join('\n');
 
-    const planText = await runClaude(prompt, workDir);
+    const planText = await runClaude(prompt, workDir, undefined, signal);
     sendResult(planText);
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
@@ -74,6 +75,7 @@ export async function handleImplement(
   issueNumber: number,
   sendCheckpoint: SendCheckpoint,
   sendResult: SendResult,
+  signal?: AbortSignal,
 ): Promise<void> {
   sendCheckpoint('started', `Starting implementation of issue #${issueNumber}...`);
 
@@ -116,7 +118,7 @@ export async function handleImplement(
     ].join('\n');
 
     sendCheckpoint('started', 'Running Claude Code...');
-    await runClaude(prompt, workDir, IMPLEMENT_TIMEOUT_MS);
+    await runClaude(prompt, workDir, IMPLEMENT_TIMEOUT_MS, signal);
     sendCheckpoint('code_completed', 'Code changes complete. Committing...');
 
     // Commit

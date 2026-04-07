@@ -75,4 +75,42 @@ export async function updateTask(
   `;
 }
 
+export async function getTaskById(id: number): Promise<{
+  id: number;
+  slack_user_id: string;
+  type: string;
+  issue_number: number | null;
+  status: string;
+} | null> {
+  const rows = await sql<{ id: number; slack_user_id: string; type: string; issue_number: number | null; status: string }[]>`
+    SELECT id::int, slack_user_id, type, issue_number, status
+    FROM tasks WHERE id = ${id} LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function hasActiveTask(
+  slackUserId: string,
+  type: string,
+  issueNumber?: number,
+): Promise<boolean> {
+  const rows = await sql<{ count: string }[]>`
+    SELECT COUNT(*)::text AS count FROM tasks
+    WHERE slack_user_id = ${slackUserId}
+      AND type = ${type}
+      AND status IN ('pending', 'in_progress')
+      AND (${issueNumber ?? null}::integer IS NULL OR issue_number = ${issueNumber ?? null})
+  `;
+  return parseInt(rows[0].count) > 0;
+}
+
+export async function cancelActiveTask(slackUserId: string): Promise<void> {
+  await sql`
+    UPDATE tasks
+    SET status = 'cancelled', updated_at = NOW()
+    WHERE slack_user_id = ${slackUserId}
+      AND status IN ('pending', 'in_progress')
+  `;
+}
+
 export default sql;
