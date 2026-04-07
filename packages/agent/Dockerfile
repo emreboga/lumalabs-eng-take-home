@@ -16,7 +16,8 @@ COPY packages/agent ./packages/agent
 RUN npm run build --workspace=packages/agent
 
 # --- Runtime image ---
-FROM node:20-alpine
+# Alpine 3.19+ ships Git 2.43 which is required for GIT_AUTHORIZATION_TOKEN support (added in Git 2.41)
+FROM node:20-alpine3.19
 WORKDIR /app
 
 # git for clone/branch/push operations
