@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import WebSocket from 'ws';
-import type { AgentInboundMessage, AgentOutboundMessage } from '@runafk/shared';
+import type { AgentInboundMessage, AgentOutboundMessage, CheckpointStatus } from '@runafk/shared';
+import { handleList, handlePlan, handlePostPlan, handleImplement } from './tasks';
 
 const RELAY_WS_URL = process.env.RELAY_WS_URL;
 const AGENT_TOKEN = process.env.AGENT_TOKEN;
@@ -18,6 +19,12 @@ function connect(): void {
   const ws = new WebSocket(RELAY_WS_URL as string, {
     headers: { Authorization: `Bearer ${AGENT_TOKEN}` },
   });
+
+  function send(msg: AgentOutboundMessage): void {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }
 
   ws.on('open', () => {
     console.log('[agent] connection established, awaiting registration...');
@@ -37,15 +44,42 @@ function connect(): void {
       return;
     }
 
-    if (msg.type === 'task') {
-      console.log(`[agent] task received from ${msg.slackUserId}: "${msg.text}"`);
+    const { taskId } = msg;
+    console.log(`[agent] task received: type=${msg.type} taskId=${taskId}`);
 
-      // Checkpoint 2: stub response — full implementation handles real tasks here
-      const response: AgentOutboundMessage = {
-        type: 'response',
-        text: `[agent stub] received: "${msg.text}"`,
-      };
-      ws.send(JSON.stringify(response));
+    const sendCheckpoint = (status: CheckpointStatus, text: string) => {
+      console.log(`[agent] checkpoint: ${status} — ${text}`);
+      send({ type: 'checkpoint', taskId, status, text });
+    };
+
+    const sendResult = (text: string) => {
+      console.log(`[agent] result for ${taskId}`);
+      send({ type: 'result', taskId, text });
+    };
+
+    const sendError = (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error(`[agent] error on task ${taskId} (${msg.type}):\n${stack ?? message}`);
+      send({ type: 'result', taskId, text: `Error: ${message}` });
+    };
+
+    switch (msg.type) {
+      case 'list':
+        handleList(sendResult).catch(sendError);
+        break;
+
+      case 'plan':
+        handlePlan(msg.issueNumber, sendCheckpoint, sendResult).catch(sendError);
+        break;
+
+      case 'post_plan':
+        handlePostPlan(msg.issueNumber, msg.planText, sendResult).catch(sendError);
+        break;
+
+      case 'implement':
+        handleImplement(msg.issueNumber, sendCheckpoint, sendResult).catch(sendError);
+        break;
     }
   });
 

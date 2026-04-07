@@ -1,17 +1,62 @@
-// Messages sent from relay to agent
-export interface RelayToAgentMessage {
-  type: 'task';
+// ─── Relay → Agent ───────────────────────────────────────────────────────────
+
+export interface ListTask {
+  type: 'list';
+  taskId: string;
   slackUserId: string;
-  text: string;
 }
 
-// Messages sent from agent to relay
-export interface AgentToRelayMessage {
-  type: 'response';
-  text: string;
+export interface PlanTask {
+  type: 'plan';
+  taskId: string;
+  slackUserId: string;
+  issueNumber: number;
 }
 
-// Confirmation sent by relay after agent connects
+export interface PostPlanTask {
+  type: 'post_plan';
+  taskId: string;
+  slackUserId: string;
+  issueNumber: number;
+  planText: string;
+}
+
+export interface ImplementTask {
+  type: 'implement';
+  taskId: string;
+  slackUserId: string;
+  issueNumber: number;
+}
+
+export type RelayToAgentMessage = ListTask | PlanTask | PostPlanTask | ImplementTask;
+
+// ─── Agent → Relay ───────────────────────────────────────────────────────────
+
+export type CheckpointStatus =
+  | 'started'
+  | 'code_completed'
+  | 'testing'
+  | 'tests_passed'
+  | 'pr_opened'
+  | 'error';
+
+export interface CheckpointMessage {
+  type: 'checkpoint';
+  taskId: string;
+  status: CheckpointStatus;
+  text: string; // human-readable message shown in Slack
+}
+
+export interface TaskResultMessage {
+  type: 'result';
+  taskId: string;
+  text: string; // final message shown in Slack (plan text, issue list, PR URL, etc.)
+}
+
+export type AgentToRelayMessage = CheckpointMessage | TaskResultMessage;
+
+// ─── Relay → Agent (connection confirmation) ─────────────────────────────────
+
 export interface AgentConnectedMessage {
   type: 'connected';
   message: string;

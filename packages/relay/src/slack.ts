@@ -1,6 +1,6 @@
-import { App, ExpressReceiver, GenericMessageEvent, LogLevel } from '@slack/bolt';
+import { App, ExpressReceiver, LogLevel } from '@slack/bolt';
 import type { Application } from 'express';
-import { forwardToAgent, isAgentOnline, registerToken, setSlackNotifier } from './ws-server';
+import { registerToken } from './ws-server';
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET!,
@@ -12,10 +12,6 @@ export const boltApp = new App({
   logLevel: LogLevel.WARN,
 });
 
-/**
- * Returns the Express app so index.ts can attach it to the shared HTTP server.
- * Bolt registers /slack/events (and /slack/actions) on this app automatically.
- */
 export function getExpressApp(): Application {
   return receiver.app;
 }
@@ -24,15 +20,51 @@ receiver.router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'runafk-relay' });
 });
 
-/**
- * Post a message to a user's DM channel.
- * Used by ws-server to deliver agent responses back to Slack.
- */
 export async function postToDM(slackUserId: string, text: string): Promise<void> {
   await boltApp.client.chat.postMessage({ channel: slackUserId, text });
 }
 
-// Register an agent token for the calling user
+export async function postPlanWithButtons(
+  slackUserId: string,
+  taskId: string,
+  issueNumber: number,
+  planText: string,
+): Promise<void> {
+  const truncated = planText.length > 2800 ? planText.slice(0, 2800) + '\n...(truncated)' : planText;
+  await boltApp.client.chat.postMessage({
+    channel: slackUserId,
+    text: `Plan for issue #${issueNumber}`,
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Plan for issue #${issueNumber}:*\n\n${truncated}`,
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Approve' },
+            style: 'primary',
+            action_id: 'approve_plan',
+            value: taskId,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Reject' },
+            style: 'danger',
+            action_id: 'reject_plan',
+            value: taskId,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 boltApp.command('/register', async ({ command, ack, respond }) => {
   await ack();
   const token = command.text.trim();
@@ -40,29 +72,13 @@ boltApp.command('/register', async ({ command, ack, respond }) => {
     await respond('Usage: `/register <token>`');
     return;
   }
-  registerToken(command.user_id, token);
-  await respond({ text: 'Agent token registered. Start your agent and it will connect automatically.', response_type: 'ephemeral' });
-});
-
-// Handle incoming DMs
-boltApp.message(async ({ message, say }) => {
-  const msg = message as GenericMessageEvent;
-  if (msg.channel_type !== 'im' || !msg.text) return;
-
-  const userId = msg.user;
-
-  // Checkpoint 2: forward to agent if connected
-  if (isAgentOnline(userId)) {
-    const sent = forwardToAgent(userId, { type: 'task', slackUserId: userId, text: msg.text });
-    if (!sent) await say('Agent is offline.');
-    return;
-  }
-
-  // Checkpoint 1: echo back
-  await say(`Echo: ${msg.text}`);
+  await registerToken(command.user_id, token);
+  await respond({
+    text: 'Agent token registered. Start your agent and it will connect automatically.',
+    response_type: 'ephemeral',
+  });
 });
 
 export function initSlack(): void {
-  setSlackNotifier(postToDM);
   console.log('[slack] Bolt app initialized in HTTP mode');
 }

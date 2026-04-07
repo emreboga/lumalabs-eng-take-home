@@ -11,6 +11,7 @@
     "@runafk/shared": "*",
     "@slack/bolt": "^3.22.0",
     "dotenv": "^16.4.5",
+    "postgres": "^3.4.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {

@@ -19,6 +19,12 @@ RUN npm run build --workspace=packages/agent
 FROM node:20-alpine
 WORKDIR /app
 
+# git for clone/branch/push operations
+RUN apk add --no-cache git
+
+# Claude Code CLI — used to generate plans and implement code
+RUN npm install -g @anthropic-ai/claude-code
+
 COPY package*.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY packages/agent/package*.json ./packages/agent/

@@ -1,15 +1,20 @@
 import 'dotenv/config';
 import { createServer } from 'http';
-import { getExpressApp, initSlack } from './slack';
-import { createAgentServer } from './ws-server';
+import { getExpressApp, initSlack, postToDM, postPlanWithButtons } from './slack';
+import { createAgentServer, setTextNotifier, setPlanNotifier } from './ws-server';
+import { initDb } from './db';
+import './commands';
+import './actions';
 
 const PORT = process.env.PORT ?? 3000;
 
-// Single HTTP server shared by Express (Slack events) and WS (agent connections)
 const server = createServer(getExpressApp());
 createAgentServer(server);
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`[http] runafk-relay listening on port ${PORT}`);
+  await initDb();
+  setTextNotifier(postToDM);
+  setPlanNotifier(postPlanWithButtons);
   initSlack();
 });
