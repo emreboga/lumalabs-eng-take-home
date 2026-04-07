@@ -1,5 +1,6 @@
 services:
   agent:
+    image: emreboga/runafk-agent:latest
     build:
       context: .
       dockerfile: packages/agent/Dockerfile
