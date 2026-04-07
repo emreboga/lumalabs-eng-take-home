@@ -88,8 +88,14 @@ export async function createPullRequest(
   return data.html_url;
 }
 
-export function cloneUrl(): string {
-  const token = process.env.GITHUB_TOKEN;
+export function getRepoUrl(): string {
   const repo = process.env.AGENT_REPO;
-  return `https://${token}@github.com/${repo}.git`;
+  if (!repo) throw new Error('AGENT_REPO is not set');
+  return `https://github.com/${repo}.git`;
+}
+
+export function getGithubToken(): string {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) throw new Error('GITHUB_TOKEN is not set');
+  return token;
 }

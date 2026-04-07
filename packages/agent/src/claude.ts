@@ -8,9 +8,10 @@ export async function runClaude(
   cwd: string,
   timeoutMs = PLAN_TIMEOUT_MS,
   signal?: AbortSignal,
+  allowedTools = 'Edit,Write,Read,Bash,Glob,Grep',
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('claude', ['--print', '--allowedTools', 'Edit,Write,Read,Bash,Glob,Grep'], {
+    const proc = spawn('claude', ['--print', '--allowedTools', allowedTools], {
       cwd,
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],

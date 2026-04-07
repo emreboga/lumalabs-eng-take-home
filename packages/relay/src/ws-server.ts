@@ -113,7 +113,7 @@ export function createAgentServer(httpServer: Server): void {
 
         // Fix 1: DB fallback when task not in memory (e.g. after relay restart)
         if (!task) {
-          const dbTask = await getTaskById(Number(msg.taskId));
+          const dbTask = await getTaskById(Number(msg.taskId), slackUserId);
           if (dbTask) {
             task = {
               slackUserId: dbTask.slack_user_id,

@@ -75,7 +75,7 @@ export async function updateTask(
   `;
 }
 
-export async function getTaskById(id: number): Promise<{
+export async function getTaskById(id: number, slackUserId: string): Promise<{
   id: number;
   slack_user_id: string;
   type: string;
@@ -84,7 +84,7 @@ export async function getTaskById(id: number): Promise<{
 } | null> {
   const rows = await sql<{ id: number; slack_user_id: string; type: string; issue_number: number | null; status: string }[]>`
     SELECT id::int, slack_user_id, type, issue_number, status
-    FROM tasks WHERE id = ${id} LIMIT 1
+    FROM tasks WHERE id = ${id} AND slack_user_id = ${slackUserId} LIMIT 1
   `;
   return rows[0] ?? null;
 }
