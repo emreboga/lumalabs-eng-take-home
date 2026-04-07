@@ -1,7 +1,7 @@
 import type { BlockAction, ButtonAction } from '@slack/bolt';
 import { boltApp, postToDM } from './slack';
 import { forwardToAgent, isAgentOnline, getPendingPlan, removePendingPlan, registerPendingTask } from './ws-server';
-import { createTask } from './db';
+import { createTask, updateTask } from './db';
 
 async function disableButtons(
   body: BlockAction,
@@ -49,6 +49,7 @@ boltApp.action<BlockAction<ButtonAction>>('approve_plan', async ({ action, ack, 
   }
 
   const dbTaskId = await createTask(userId, 'post_plan', plan.issueNumber);
+  await updateTask(dbTaskId, { planText: plan.planText });
   const taskId = String(dbTaskId);
   const sent = forwardToAgent(userId, {
     type: 'post_plan',

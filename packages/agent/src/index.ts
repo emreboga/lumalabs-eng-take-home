@@ -72,7 +72,8 @@ function connect(): void {
         return;
       }
       console.error(`[agent] error on task ${taskId} (${msg.type}):\n${stack ?? message}`);
-      send({ type: 'result', taskId, text: `Error: ${message}`, error: true });
+      const safeMessage = message.split('\n')[0].slice(0, 200);
+      send({ type: 'result', taskId, text: `Error: ${safeMessage}`, error: true });
     };
 
     if (msg.type === 'cancel') {
@@ -105,7 +106,7 @@ function connect(): void {
         break;
 
       case 'implement':
-        wrapTask(handleImplement(msg.issueNumber, sendCheckpoint, sendResult, signal));
+        wrapTask(handleImplement(msg.issueNumber, sendCheckpoint, sendResult, signal, msg.planText));
         break;
     }
   });

@@ -89,6 +89,22 @@ export async function getTaskById(id: number, slackUserId: string): Promise<{
   return rows[0] ?? null;
 }
 
+export async function getPlanText(slackUserId: string, issueNumber: number): Promise<string | null> {
+  const rows = await sql<{ id: number; plan_text: string }[]>`
+    SELECT id::int, plan_text FROM tasks
+    WHERE slack_user_id = ${slackUserId}
+      AND issue_number = ${issueNumber}
+      AND type = 'post_plan'
+      AND status = 'completed'
+      AND plan_text IS NOT NULL
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  await sql`UPDATE tasks SET plan_text = NULL, updated_at = NOW() WHERE id = ${rows[0].id}`;
+  return rows[0].plan_text;
+}
+
 export async function hasActiveTask(
   slackUserId: string,
   type?: string,

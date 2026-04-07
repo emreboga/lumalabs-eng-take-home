@@ -40,7 +40,7 @@ export async function runClaude(
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
       console.log(`[claude] exited with code ${code}`);
-      if (stdout) console.log(`[claude] stdout:\n${stdout.slice(-2000)}`);
+      if (stdout && process.env.DEBUG) console.log(`[claude] stdout:\n${stdout.slice(-2000)}`);
       if (stderr) console.log(`[claude] stderr:\n${stderr.slice(-1000)}`);
       if (code === 0) {
         resolve(stdout.trim());

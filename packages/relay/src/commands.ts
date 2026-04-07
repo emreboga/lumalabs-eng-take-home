@@ -1,6 +1,6 @@
 import { boltApp, postToDM } from './slack';
 import { forwardToAgent, isAgentOnline, registerPendingTask } from './ws-server';
-import { createTask, updateTask, hasActiveTask, cancelActiveTask } from './db';
+import { createTask, updateTask, hasActiveTask, cancelActiveTask, getPlanText } from './db';
 
 function parseIssueNumber(text: string): number | null {
   const n = parseInt(text.trim().replace(/^#/, ''));
@@ -44,6 +44,10 @@ boltApp.command('/plan', async ({ command, ack, respond }) => {
     await agentOfflineReply(respond);
     return;
   }
+  if (await hasActiveTask(command.user_id)) {
+    await respond({ text: 'You already have an active task. Use `/cancel` to stop it first.', response_type: 'ephemeral' });
+    return;
+  }
   if (await hasActiveTask(command.user_id, 'plan', issueNumber)) {
     await respond({ text: `Already planning issue #${issueNumber}.`, response_type: 'ephemeral' });
     return;
@@ -76,10 +80,15 @@ boltApp.command('/implement', async ({ command, ack, respond }) => {
     await agentOfflineReply(respond);
     return;
   }
+  if (await hasActiveTask(command.user_id)) {
+    await respond({ text: 'You already have an active task. Use `/cancel` to stop it first.', response_type: 'ephemeral' });
+    return;
+  }
   if (await hasActiveTask(command.user_id, 'implement', issueNumber)) {
     await respond({ text: `Already working on issue #${issueNumber}.`, response_type: 'ephemeral' });
     return;
   }
+  const planText = await getPlanText(command.user_id, issueNumber) ?? undefined;
   const dbTaskId = await createTask(command.user_id, 'implement', issueNumber);
   const taskId = String(dbTaskId);
   const sent = forwardToAgent(command.user_id, {
@@ -87,6 +96,7 @@ boltApp.command('/implement', async ({ command, ack, respond }) => {
     taskId,
     slackUserId: command.user_id,
     issueNumber,
+    planText,
   });
   if (!sent) {
     await agentOfflineReply(respond);

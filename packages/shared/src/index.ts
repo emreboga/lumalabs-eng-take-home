@@ -26,6 +26,7 @@ export interface ImplementTask {
   taskId: string;
   slackUserId: string;
   issueNumber: number;
+  planText?: string; // passed from relay to avoid re-fetching from GitHub
 }
 
 export interface CancelTask {
